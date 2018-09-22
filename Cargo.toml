@@ -3,6 +3,6 @@ name = "milstian-http"
 version = "0.1.0"
 authors = ["Christian Johansson <christian@cvj.se>"]
 description = "A binary HTTP parser."
-license = "MIT OR Apache-2.0"
+license = "GPL-3.0-only"
 
 [dependencies]
