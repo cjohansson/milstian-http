@@ -1,3 +1,5 @@
+//! # Request
+
 use std::collections::HashMap;
 use std::str;
 
@@ -421,6 +423,17 @@ impl Message {
         None
     }
 
+    /// Try to decode a byte stream into a HTTP Message
+    /// ## Usage
+    /// ```rust
+    /// extern crate milstian_http;
+    /// use milstian_http::request::{Message, Method, Protocol};
+    /// let response = Message::from_tcp_stream(b"GET / HTTP/2.0\r\n");
+    /// let response_unwrapped = response.expect("A decoded HTTP Message");
+    /// assert_eq!(response_unwrapped.request_line.method, Method::Get);
+    /// assert_eq!(response_unwrapped.request_line.request_uri, "/".to_string());
+    /// assert_eq!(response_unwrapped.request_line.protocol, Protocol::V2_0);
+    /// ```
     pub fn from_tcp_stream(request: &[u8]) -> Option<Message> {
         // Temporary message
         let mut message = Message {
