@@ -1,4 +1,4 @@
-//! # Request
+//! # Handles everything related to HTTP requests.
 
 use std::collections::HashMap;
 use std::str;

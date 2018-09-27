@@ -1,3 +1,5 @@
+//! # Handles everything related to HTTP responses.
+
 use std::collections::HashMap;
 use std::str;
 
