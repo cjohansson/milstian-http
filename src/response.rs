@@ -3,9 +3,10 @@
 use std::collections::HashMap;
 use std::str;
 
+/// # A request message
 pub struct Message {
     protocol: String,
-    pub status: String,
+    status: String,
     headers: HashMap<String, String>,
     body: Vec<u8>,
 }
@@ -40,7 +41,22 @@ impl Message {
         response
     }
 
-    pub fn _to_string(&self) -> String {
+    /// # Convert response message into a string
+    /// ```rust
+    /// extern crate milstian_http;
+    /// use milstian_http::response::Message;
+    /// use std::collections::HashMap;
+    /// assert_eq!(
+    ///     Message::new(
+    ///         "HTTP/1.0".to_string(),
+    ///         "200 OK".to_string(),
+    ///         HashMap::new(),
+    ///         b"<html><body>Nothing here</body></html>".to_vec()
+    ///     ).to_string(),
+    ///     "HTTP/1.0 200 OK\r\n\r\n<html><body>Nothing here</body></html>".to_string()
+    /// );
+    /// ```
+    pub fn to_string(&self) -> String {
         let mut response = format!("{} {}\r\n", &self.protocol, &self.status);
 
         if !&self.headers.is_empty() {
@@ -61,6 +77,21 @@ impl Message {
         response
     }
 
+    /// # Convert message into bytes
+    /// ```rust
+    /// extern crate milstian_http;
+    /// use milstian_http::response::Message;
+    /// use std::collections::HashMap;
+    /// assert_eq!(
+    ///     Message::new(
+    ///         "HTTP/1.0".to_string(),
+    ///         "200 OK".to_string(),
+    ///         HashMap::new(),
+    ///         b"<html><body>Nothing here</body></html>".to_vec()
+    ///     ).to_bytes(),
+    ///     b"HTTP/1.0 200 OK\r\n\r\n<html><body>Nothing here</body></html>".to_vec()
+    /// );
+    /// ```
     pub fn to_bytes(&mut self) -> Vec<u8> {
         let mut response = format!("{} {}\r\n", &self.protocol, &self.status).into_bytes();
 
@@ -79,4 +110,25 @@ impl Message {
 
         response
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_new()
+    {
+        let message = Message::new(
+            "HTTP/1.0".to_string(),
+            "200 OK".to_string(),
+            HashMap::new(),
+            b"<html><body>Nothing here</body></html>".to_vec()
+        );
+        assert_eq!(
+            message.to_string(),
+            "HTTP/1.0 200 OK\r\n\r\n<html><body>Nothing here</body></html>".to_string()
+        );
+    }
+
 }

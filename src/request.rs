@@ -681,7 +681,7 @@ impl Message {
 }
 
 #[cfg(test)]
-mod request_test {
+mod tests {
     use super::*;
 
     #[test]
