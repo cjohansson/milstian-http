@@ -12,6 +12,7 @@ pub struct Message {
 }
 
 impl Message {
+    /// # Create a new HTTP Message
     pub fn new(
         protocol: String,
         status: String,
@@ -26,7 +27,21 @@ impl Message {
         }
     }
 
-    pub fn _header_to_string(&self) -> String {
+    /// # Get the HTTP header as a new string
+    /// ```rust
+    /// use milstian_http::response::Message;
+    /// use std::collections::HashMap;
+    /// assert_eq!(
+    ///     Message::new(
+    ///         "HTTP/1.0".to_string(),
+    ///         "200 OK".to_string(),
+    ///         HashMap::new(),
+    ///         b"<html><body>Nothing here</body></html>".to_vec()
+    ///     ).header_to_string(),
+    ///     "HTTP/1.0 200 OK\r\n\r\n".to_string()
+    /// );    
+    /// ```
+    pub fn header_to_string(&self) -> String {
         let mut response = format!("{} {}\r\n", &self.protocol, &self.status);
 
         if !&self.headers.is_empty() {
@@ -35,15 +50,14 @@ impl Message {
             for (key, value) in headers {
                 response.push_str(&format!("{}: {}\r\n", &key, &value));
             }
-            response.push_str("\r\n");
         }
+        response.push_str("\r\n");
 
         response
     }
 
     /// # Convert response message into a string
     /// ```rust
-    /// extern crate milstian_http;
     /// use milstian_http::response::Message;
     /// use std::collections::HashMap;
     /// assert_eq!(
@@ -56,7 +70,7 @@ impl Message {
     ///     "HTTP/1.0 200 OK\r\n\r\n<html><body>Nothing here</body></html>".to_string()
     /// );
     /// ```
-    pub fn to_string(&self) -> String {
+    pub fn to_string(&mut self) -> String {
         let mut response = format!("{} {}\r\n", &self.protocol, &self.status);
 
         if !&self.headers.is_empty() {
@@ -79,7 +93,6 @@ impl Message {
 
     /// # Convert message into bytes
     /// ```rust
-    /// extern crate milstian_http;
     /// use milstian_http::response::Message;
     /// use std::collections::HashMap;
     /// assert_eq!(
@@ -117,17 +130,30 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_new()
-    {
-        let message = Message::new(
+    fn test_to_string() {
+        let mut message = Message::new(
             "HTTP/1.0".to_string(),
             "200 OK".to_string(),
             HashMap::new(),
-            b"<html><body>Nothing here</body></html>".to_vec()
+            b"<html><body>Nothing here</body></html>".to_vec(),
         );
         assert_eq!(
             message.to_string(),
             "HTTP/1.0 200 OK\r\n\r\n<html><body>Nothing here</body></html>".to_string()
+        );
+    }
+
+    #[test]
+    fn test_to_bytes() {
+        let mut message = Message::new(
+            "HTTP/1.0".to_string(),
+            "200 OK".to_string(),
+            HashMap::new(),
+            b"<html><body>Nothing here</body></html>".to_vec(),
+        );
+        assert_eq!(
+            message.to_bytes(),
+            b"HTTP/1.0 200 OK\r\n\r\n<html><body>Nothing here</body></html>".to_vec()
         );
     }
 

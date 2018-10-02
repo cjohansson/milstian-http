@@ -1,6 +1,6 @@
 [package]
 name = "milstian-http"
-version = "0.1.3"
+version = "0.1.4"
 authors = ["Christian Johansson <christian@cvj.se>"]
 description = "A binary HTTP parser."
 license = "GPL-3.0-only"

@@ -24,12 +24,12 @@
 //!
 //! ### Decoding a TCP stream into a HTTP request
 //! ```rust
-//! extern crate milstian_http;
 //! use milstian_http::request::{Message, Method, Protocol};
 //! 
 //! let request =
 //!     Message::from_tcp_stream(b"POST / HTTP/1.0\r\nAgent: Random browser\r\n\r\ntest=abc");
 //! assert!(request.is_some());
+//!
 //! let request_unwrapped = request.expect("POST HTTP1");
 //! assert_eq!(request_unwrapped.request_line.method, Method::Post);
 //! assert_eq!(request_unwrapped.request_line.protocol, Protocol::V1_0);
@@ -37,9 +37,9 @@
 //!
 //! ### Encoding protocol, status, headers and body into a HTTP response
 //! ```rust
-//! extern crate milstian_http;
 //! use milstian_http::response::Message;
 //! use std::collections::HashMap;
+//!
 //! assert_eq!(
 //!     Message::new(
 //!         "HTTP/1.0".to_string(),
