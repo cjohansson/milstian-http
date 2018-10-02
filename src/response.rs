@@ -27,6 +27,11 @@ impl Message {
         }
     }
 
+    pub fn set_status(&mut self, status: String)
+    {
+        self.status = status;
+    }
+
     /// # Get the HTTP header as a new string
     /// ```rust
     /// use milstian_http::response::Message;
