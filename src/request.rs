@@ -20,6 +20,7 @@ pub struct Message {
 pub struct Line {
     pub method: Method,
     pub protocol: Protocol,
+    pub raw: String,
     pub request_uri: String,
     pub request_uri_base: String,
     pub query_arguments: HashMap<String, String>,
@@ -382,6 +383,7 @@ impl Message {
                 return Some(Line {
                     method,
                     protocol,
+                    raw: line,
                     request_uri,
                     request_uri_base,
                     query_arguments,
@@ -413,6 +415,7 @@ impl Message {
                 return Some(Line {
                     method,
                     protocol,
+                    raw: line.to_string(),
                     request_uri,
                     request_uri_base,
                     query_arguments,
