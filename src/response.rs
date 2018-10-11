@@ -5,10 +5,10 @@ use std::str;
 
 /// # A request message
 pub struct Message {
-    protocol: String,
-    status: String,
-    headers: HashMap<String, String>,
-    body: Vec<u8>,
+    pub protocol: String,
+    pub status: String,
+    pub headers: HashMap<String, String>,
+    pub body: Vec<u8>,
 }
 
 impl Message {
@@ -25,11 +25,6 @@ impl Message {
             headers,
             body,
         }
-    }
-
-    pub fn set_status(&mut self, status: String)
-    {
-        self.status = status;
     }
 
     /// # Get the HTTP header as a new string
