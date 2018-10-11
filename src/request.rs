@@ -383,7 +383,7 @@ impl Message {
                 return Some(Line {
                     method,
                     protocol,
-                    raw: line,
+                    raw: line.to_string(),
                     request_uri,
                     request_uri_base,
                     query_arguments,
@@ -444,6 +444,7 @@ impl Message {
             request_line: Line {
                 method: Method::Invalid,
                 protocol: Protocol::Invalid,
+                raw: String::new(),
                 request_uri: String::new(),
                 request_uri_base: String::new(),
                 query_arguments: HashMap::new(),
