@@ -25,7 +25,7 @@
 //! ### Decoding a TCP stream into a HTTP request
 //! ```rust
 //! use milstian_http::request::{Message, Method, Protocol};
-//! 
+//!
 //! let request =
 //!     Message::from_tcp_stream(b"POST / HTTP/1.0\r\nAgent: Random browser\r\n\r\ntest=abc");
 //! assert!(request.is_some());
@@ -53,3 +53,48 @@
 
 pub mod request;
 pub mod response;
+
+/// # Capitalize key, used for http header keys
+/// ## Usage
+/// ```rust
+///assert_eq!("Content-Type".to_string(), milstian_http::capitalize_key("content-type"));
+/// ```
+pub fn capitalize_key(word: &str) -> String {
+    let parts: Vec<&str> = word.split("-").collect();
+    let mut converted = String::new();
+    let mut first_part = true;
+    let mut first_char: bool;
+    for part in parts {
+        if first_part {
+            first_part = false;
+        } else {
+            converted.push('-');
+        }
+        first_char = true;
+        for character in part.chars() {
+            if first_char {
+                first_char = false;
+                for char in character.to_uppercase() {
+                    converted.push(char);
+                }
+            } else {
+                for char in character.to_lowercase() {
+                    converted.push(char);
+                }
+            }
+        }
+    }
+    converted
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_capitalize_key() {
+        assert_eq!("Content-Type".to_string(), capitalize_key("content-type"));
+        assert_eq!("Content-Type".to_string(), capitalize_key("CONTENT-TYPE"));
+        assert_eq!("Accept".to_string(), capitalize_key("acCept"));
+    }
+}
