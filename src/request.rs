@@ -571,11 +571,12 @@ impl Message {
                             } else if byte == &10 && last_was_carriage_return {
                                 multipart_section = MultiPartSection::EndBoundary;
                                 last_was_carriage_return = false;
-                                end_data = end - 1;
-                                start_boundary = end + 1;
                                 eprintln!("Going from 'end secondary' -> 'end boundary'");
                             } else if byte == &0 {
                                 break;
+                            } else {
+                                multipart_section = MultiPartSection::EndBoundary;
+                                last_was_carriage_return = false;
                             }
                         }
 
@@ -1054,7 +1055,7 @@ BNUI5YCF3PV9MKr3N53vEVYvkbXLbw==
             );
             assert_eq!(
                 String::from_utf8(body.get(&"file2".to_string()).expect("expecting file data").body.clone()).expect("expecting utf-8 file data"),
-                "-----BEGIN PGP SIGNATURE-----\n\niQEzBAABCAAdFiEEweTLo61406/YlPngt6ZvA7WQdqgFAlqfE5MACgkQt6ZvA7WQ\ndqgnEAgAjtdbsMPaULGXKX6H+fcsYeGEN8OjiUTNz+StwNDkDxhxB4MT0N0lYZ4L\nxUv86kwMdWAaxp8pvVWo6gWXTEM5gWmN302bBxkpbhBl9fnq6WdcCCDGs4GM5vHX\nlOrHXWTsK+8ayLNZ0dCcP054srAtMmJHscPiuUYPfvKSgLxl+JxkPC147EktCCzv\n5O+2AtQPwIEPuaMewFqP9KjaGOhWgAc0nauIKa0ASt9FXXrexq1EoZnoZ3ZQ0p/w\n/otAB2D27yQ4kv+X2Rn94Ky9W0lMT2MYEF+/tQH4aEKsdMBQ7REQtfLGFlEzTMB/\nBNUI5YCF3PV9MKr3N53vEVYvkbXLbw==\n=LO1E\n-----END PGP SIGNATURE-----\n".to_string()
+                "-----BEGIN PGP SIGNATURE-----\n\niQEzBAABCAAdFiEEweTLo61406/YlPngt6ZvA7WQdqgFAlrzMl4ACgkQt6ZvA7WQ\ndqhkrQf9G3r5thluX7Ogx9BCnot2L17nH7DFcwcWe2k1gHyC7ttkbdYSXQXaCDGN\nYmedemyvdE7d/TZxbbPuo09LYvj/+5WAUx8KBJHsE6xMK7kwbZJ5i3BBO2NY7p2b\no68XU+Emg6VuynjoW9xDTQO/2PUSSzJeU9Jql7RXPY2RpJp0+BbGkC356vavZk9a\n8oX8/abn1iZgzfY1lyC4aBNHFf7ycalEbOgGAfw/iT5qtDIihLf4QwFqCKO0/stn\nB118cEtpnKmAQuQMoAqKXlPg8f3xxVf2plJZkRMaynX39ykf3gAeRDnkCoQWx0GN\nFr5IBrP1bBbAWAKn2C4TqKb9QyMwJw==\n=icrk\n-----END PGP SIGNATURE-----".to_string()
             );
         } else {
             eprintln!(
