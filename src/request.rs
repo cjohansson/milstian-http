@@ -123,6 +123,7 @@ enum ParserSection {
 
 enum MultiPartSection {
     End,
+    EndSecondary,
     EndBoundary,
     Skipping,
     Start,
@@ -472,13 +473,13 @@ impl Message {
                 // Are we parsing boundaries?
                 ParserMode::Boundaries(ref boundary) => {
                     match multipart_section {
-
                         // Stay here until we encounter \n\r
                         MultiPartSection::Skipping => {
                             if byte == &13 {
                                 last_was_carriage_return = true;
                             } else if byte == &10 && last_was_carriage_return {
                                 multipart_section = MultiPartSection::Start;
+                                eprintln!("Going from 'skipping' -> 'start'");
                                 start_boundary = end + 1;
                                 last_was_carriage_return = false;
                             } else if byte == &0 {
@@ -496,6 +497,7 @@ impl Message {
                                     // Was it the last character of boundary?
                                     if end - start_boundary + 1 == boundary.len() {
                                         multipart_section = MultiPartSection::StartSuffix;
+                                        eprintln!("Going from 'start' -> 'start suffix'");
                                     }
                                 } else if byte == &45 && start_boundary < end {
                                     if let Some(boundary_byte) =
@@ -505,17 +507,21 @@ impl Message {
                                             start_boundary = start_boundary + 1;
                                         } else {
                                             multipart_section = MultiPartSection::Skipping;
+                                            eprintln!("Going from 'start' -> 'skipping'");
                                         }
                                     } else {
                                         multipart_section = MultiPartSection::Skipping;
+                                        eprintln!("Going from 'start' -> 'skipping'");
                                     }
                                 } else {
                                     multipart_section = MultiPartSection::Skipping;
+                                    eprintln!("Going from 'start' -> 'skipping'");
                                 }
                             } else if byte == &0 {
                                 break;
                             } else {
                                 multipart_section = MultiPartSection::Skipping;
+                                eprintln!("Going from 'start' -> 'skipping'");
                             }
                         }
 
@@ -525,6 +531,7 @@ impl Message {
                                 last_was_carriage_return = true;
                             } else if byte == &10 && last_was_carriage_return {
                                 multipart_section = MultiPartSection::End;
+                                eprintln!("Going from 'start suffix' -> 'end'");
                                 last_was_carriage_return = false;
                                 start_data = end;
                             } else if byte == &0 {
@@ -532,18 +539,41 @@ impl Message {
                             } else {
                                 last_was_carriage_return = false;
                                 multipart_section = MultiPartSection::Skipping;
+                                eprintln!("Going from 'start suffix' -> 'skipping'");
                             }
                         }
 
                         // Stay here until we encounter \r\n
                         MultiPartSection::End => {
+                            // Is it a carriage return?
                             if byte == &13 {
                                 last_was_carriage_return = true;
+
+                            // Is it a new-line?
+                            } else if byte == &10 && last_was_carriage_return {
+                                multipart_section = MultiPartSection::EndSecondary;
+                                last_was_carriage_return = false;
+                                end_data = end - 1;
+                                start_boundary = end + 1;
+                                eprintln!("Going from 'end' -> 'end secondary'");
+                            } else if byte == &0 {
+                                break;
+                            }
+                        }
+
+                        // Stay here until we encounter \r\n
+                        MultiPartSection::EndSecondary => {
+                            // Is it a carriage return?
+                            if byte == &13 {
+                                last_was_carriage_return = true;
+
+                            // Is it a new-line?
                             } else if byte == &10 && last_was_carriage_return {
                                 multipart_section = MultiPartSection::EndBoundary;
                                 last_was_carriage_return = false;
                                 end_data = end - 1;
                                 start_boundary = end + 1;
+                                eprintln!("Going from 'end secondary' -> 'end boundary'");
                             } else if byte == &0 {
                                 break;
                             }
@@ -554,15 +584,24 @@ impl Message {
                             // Does byte match next byte in boundary?
                             if let Some(boundary_byte) = boundary.get(end - start_boundary) {
                                 if boundary_byte == byte {
+                                    eprintln!(
+                                        "Byte matched boundary byte {}",
+                                        *boundary_byte as char
+                                    );
                                     // Was it the last character of boundary?
                                     if end - start_boundary + 1 == boundary.len() {
                                         multipart_section = MultiPartSection::StartSuffix;
+                                        eprintln!("Going from 'end boundary' -> 'start suffix'");
 
                                         if start_data > 0
                                             && start_data < end_data
                                             && end_data < request.len()
                                         {
                                             let data = &request[start_data..end_data];
+                                            eprintln!(
+                                                "Trying to get query arg from {:?}",
+                                                str::from_utf8(&data)
+                                            );
                                             if let Some((query_key, query_value)) =
                                                 Message::get_query_args_from_multipart_blob(&data)
                                             {
@@ -574,25 +613,38 @@ impl Message {
                                             }
                                         }
                                     }
+
+                                // Was the character a '-' and does the start of boundary occur before the current position?
                                 } else if byte == &45 && start_boundary < end {
                                     if let Some(boundary_byte) =
                                         boundary.get(end - start_boundary - 1)
                                     {
                                         if boundary_byte == byte {
                                             start_boundary = start_boundary + 1;
+                                            eprintln!(
+                                                "Character matches boundary byte '{}'",
+                                                *byte as char
+                                            );
                                         } else {
                                             multipart_section = MultiPartSection::End;
+                                            eprintln!("Going from 'end boundary' -> 'end'. Byte didnt match boundary {} vs {}", *boundary_byte as char, *byte as char);
                                         }
                                     } else {
                                         multipart_section = MultiPartSection::End;
+                                        eprintln!("Going from 'end boundary' -> 'end'. Failed to find boundary byte");
                                     }
                                 } else {
                                     multipart_section = MultiPartSection::End;
+                                    eprintln!("Going from 'end boundary' -> 'end'. Not matching character was not a '-' but {:?}", *byte as char);
+                                    if byte == &13 {
+                                        last_was_carriage_return = true;
+                                    }
                                 }
                             } else if byte == &0 {
                                 break;
                             } else {
                                 multipart_section = MultiPartSection::End;
+                                eprintln!("Going from 'end boundary' -> 'end'");
                             }
                         }
                     }
@@ -602,6 +654,8 @@ impl Message {
                 ParserMode::Lines => {
                     if byte == &13 {
                         last_was_carriage_return = true;
+
+                    // Did we find a \r\n sequence?
                     } else if byte == &10 && last_was_carriage_return {
                         let clean_end = end - 1;
                         if let Ok(utf8_line) = str::from_utf8(&request[start..clean_end]) {
@@ -641,6 +695,7 @@ impl Message {
             end = end + 1;
         }
 
+        // Did we find a valid method and protocol?
         if message.request_line.method != Method::Invalid
             && message.request_line.protocol != Protocol::Invalid
         {
@@ -671,6 +726,7 @@ impl Message {
                         if let Some(boundary) = content_type_header.get_key_value("boundary") {
                             *parser_mode = ParserMode::Boundaries(boundary.as_bytes().to_vec());
                             message.body = BodyContentType::MultiPart(HashMap::new());
+                            eprintln!("Found boundary start: '{}'", &boundary);
                         }
                     }
 
@@ -963,13 +1019,14 @@ BNUI5YCF3PV9MKr3N53vEVYvkbXLbw==
         assert!(response.is_none());
 
         // Multi-part with one form-data
-        let response = Message::from_tcp_stream(b"POST /?test=abcdef HTTP/1.1\r\nHost: localhost:8888\r\nUser-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.13; rv:63.0) Gecko/20100101 Firefox/63.0\r\nAccept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8\r\nAccept-Language: en-US,en;q=0.5\r\nAccept-Encoding: gzip, deflate\r\nReferer: http://localhost:8888/?test=abcdef\r\nContent-Type: multipart/form-data; boundary=---------------------------5072966556248019951999579782\r\nContent-Length: 733\r\nDNT: 1\r\nConnection: keep-alive\r\nUpgrade-Insecure-Requests: 1\r\nPragma: no-cache\r\nCache-Control: no-cache\r\n\r\n-----------------------------5072966556248019951999579782\r\nContent-Disposition: form-data; name=\"file\"; filename=\"KeePassXC-2.3.1.dmg.sig\"\r\nContent-Type: application/octet-stream\r\n\r\n-----BEGIN PGP SIGNATURE-----\n\niQEzBAABCAAdFiEEweTLo61406/YlPngt6ZvA7WQdqgFAlqfE5MACgkQt6ZvA7WQ\ndqgnEAgAjtdbsMPaULGXKX6H+fcsYeGEN8OjiUTNz+StwNDkDxhxB4MT0N0lYZ4L\nxUv86kwMdWAaxp8pvVWo6gWXTEM5gWmN302bBxkpbhBl9fnq6WdcCCDGs4GM5vHX\nlOrHXWTsK+8ayLNZ0dCcP054srAtMmJHscPiuUYPfvKSgLxl+JxkPC147EktCCzv\n5O+2AtQPwIEPuaMewFqP9KjaGOhWgAc0nauIKa0ASt9FXXrexq1EoZnoZ3ZQ0p/w\n/otAB2D27yQ4kv+X2Rn94Ky9W0lMT2MYEF+/tQH4aEKsdMBQ7REQtfLGFlEzTMB/\nBNUI5YCF3PV9MKr3N53vEVYvkbXLbw==\n=LO1E\n-----END PGP SIGNATURE-----\n\r\n-----------------------------5072966556248019951999579782--\r\nCAAdFiEEweTLo61406/YlPngt6ZvA7WQdqgFAlqfE5MACgkQt6ZvA7WQ\ndqgnEAgAjtdbsMPaULGXKX6H+fcsYeGEN8OjiUTNz+StwNDkDxhxB4MT0N0lYZ4L\nxUv86kwMdWAaxp8pvVWo6gWXTEM5gWmN302bBxkpbhBl9fnq6WdcCCDGs4GM5vHX\nlOrHXWTsK+8ayLNZ0dCcP054srAtMmJHscPiuUYPfvKSgLxl+JxkPC147");
+        let response = Message::from_tcp_stream(b"POST /?test=abcdef HTTP/1.1\r\nHost: localhost:8888\r\nUser-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.13; rv:63.0) Gecko/20100101 Firefox/63.0\r\nAccept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8\r\nAccept-Language: en-US,en;q=0.5\r\nAccept-Encoding: gzip, deflate\r\nReferer: http://localhost:8888/?test=abcdef\r\nContent-Type: multipart/form-data; boundary=-----------------------------3204198641555151219403070096\r\nContent-Length: 733\r\nDNT: 1\r\nConnection: keep-alive\r\nUpgrade-Insecure-Requests: 1\r\nPragma: no-cache\r\nCache-Control: no-cache\r\n\r\n-----------------------------3204198641555151219403070096\r\nContent-Disposition: form-data; name=\"file\"; filename=\"KeePassXC-2.3.3.dmg.DIGEST\"\r\nContent-Type: application/octet-stream\r\n\r\n1219dd686aee2549ef8fe688aeef22e85272a8ccbefdbbb64c0e5601db17fbdb  KeePassXC-2.3.3.dmg\r\n\r\n-----------------------------3204198641555151219403070096\r\n");
         assert!(response.is_some());
         let response_unwrapped = response.expect("multipart");
         if let BodyContentType::MultiPart(body) = response_unwrapped.body {
+            eprintln!("body: {:?}", body);
             assert_eq!(
-                String::from_utf8(body.get(&"file".to_string()).expect("expecting file data").body.clone()).expect("expecting utf-8 file data"),
-                "-----BEGIN PGP SIGNATURE-----\n\niQEzBAABCAAdFiEEweTLo61406/YlPngt6ZvA7WQdqgFAlqfE5MACgkQt6ZvA7WQ\ndqgnEAgAjtdbsMPaULGXKX6H+fcsYeGEN8OjiUTNz+StwNDkDxhxB4MT0N0lYZ4L\nxUv86kwMdWAaxp8pvVWo6gWXTEM5gWmN302bBxkpbhBl9fnq6WdcCCDGs4GM5vHX\nlOrHXWTsK+8ayLNZ0dCcP054srAtMmJHscPiuUYPfvKSgLxl+JxkPC147EktCCzv\n5O+2AtQPwIEPuaMewFqP9KjaGOhWgAc0nauIKa0ASt9FXXrexq1EoZnoZ3ZQ0p/w\n/otAB2D27yQ4kv+X2Rn94Ky9W0lMT2MYEF+/tQH4aEKsdMBQ7REQtfLGFlEzTMB/\nBNUI5YCF3PV9MKr3N53vEVYvkbXLbw==\n=LO1E\n-----END PGP SIGNATURE-----\n".to_string()
+                String::from_utf8(body.get(&"file".to_string()).expect("expecting file data 1").body.clone()).expect("expecting utf-8 file data"),
+                "1219dd686aee2549ef8fe688aeef22e85272a8ccbefdbbb64c0e5601db17fbdb  KeePassXC-2.3.3.dmg".to_string()
             );
         } else {
             eprintln!(
@@ -987,8 +1044,8 @@ BNUI5YCF3PV9MKr3N53vEVYvkbXLbw==
             );
         }
 
-        // Multi-part data with two datas
-        let response = Message::from_tcp_stream(b"-----------------------------3204198641555151219403070096\nContent-Disposition: form-data; name=\"file\"; filename=\"KeePassXC-2.3.3.dmg.DIGEST\"\nContent-Type: application/octet-stream\n\n1219dd686aee2549ef8fe688aeef22e85272a8ccbefdbbb64c0e5601db17fbdb  KeePassXC-2.3.3.dmg\n\n-----------------------------3204198641555151219403070096\nContent-Disposition: form-data; name=\"file2\"; filename=\"KeePassXC-2.3.3.dmg.sig\"\nContent-Type: application/octet-stream\n\n-----BEGIN PGP SIGNATURE-----\n\niQEzBAABCAAdFiEEweTLo61406/YlPngt6ZvA7WQdqgFAlrzMl4ACgkQt6ZvA7WQ\ndqhkrQf9G3r5thluX7Ogx9BCnot2L17nH7DFcwcWe2k1gHyC7ttkbdYSXQXaCDGN\nYmedemyvdE7d/TZxbbPuo09LYvj/+5WAUx8KBJHsE6xMK7kwbZJ5i3BBO2NY7p2b\no68XU+Emg6VuynjoW9xDTQO/2PUSSzJeU9Jql7RXPY2RpJp0+BbGkC356vavZk9a\n8oX8/abn1iZgzfY1lyC4aBNHFf7ycalEbOgGAfw/iT5qtDIihLf4QwFqCKO0/stn\nB118cEtpnKmAQuQMoAqKXlPg8f3xxVf2plJZkRMaynX39ykf3gAeRDnkCoQWx0GN\nFr5IBrP1bBbAWAKn2C4TqKb9QyMwJw==\n=icrk\n-----END PGP SIGNATURE-----\n\n-----------------------------3204198641555151219403070096--\n");
+        // Multi-part data with two data
+        let response = Message::from_tcp_stream(b"POST /?test=abcdef HTTP/1.1\r\nHost: localhost:8888\r\nUser-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.13; rv:63.0) Gecko/20100101 Firefox/63.0\r\nAccept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8\r\nAccept-Language: en-US,en;q=0.5\r\nAccept-Encoding: gzip, deflate\r\nReferer: http://localhost:8888/?test=abcdef\r\nContent-Type: multipart/form-data; boundary=-----------------------------3204198641555151219403070096\r\nContent-Length: 733\r\nDNT: 1\r\nConnection: keep-alive\r\nUpgrade-Insecure-Requests: 1\r\nPragma: no-cache\r\nCache-Control: no-cache\r\n\r\n-----------------------------3204198641555151219403070096\r\nContent-Disposition: form-data; name=\"file\"; filename=\"KeePassXC-2.3.3.dmg.DIGEST\"\r\nContent-Type: application/octet-stream\r\n\r\n1219dd686aee2549ef8fe688aeef22e85272a8ccbefdbbb64c0e5601db17fbdb  KeePassXC-2.3.3.dmg\r\n\r\n-----------------------------3204198641555151219403070096\r\nContent-Disposition: form-data; name=\"file2\"; filename=\"KeePassXC-2.3.3.dmg.sig\"\r\nContent-Type: application/octet-stream\r\n\r\n-----BEGIN PGP SIGNATURE-----\n\niQEzBAABCAAdFiEEweTLo61406/YlPngt6ZvA7WQdqgFAlrzMl4ACgkQt6ZvA7WQ\ndqhkrQf9G3r5thluX7Ogx9BCnot2L17nH7DFcwcWe2k1gHyC7ttkbdYSXQXaCDGN\nYmedemyvdE7d/TZxbbPuo09LYvj/+5WAUx8KBJHsE6xMK7kwbZJ5i3BBO2NY7p2b\no68XU+Emg6VuynjoW9xDTQO/2PUSSzJeU9Jql7RXPY2RpJp0+BbGkC356vavZk9a\n8oX8/abn1iZgzfY1lyC4aBNHFf7ycalEbOgGAfw/iT5qtDIihLf4QwFqCKO0/stn\nB118cEtpnKmAQuQMoAqKXlPg8f3xxVf2plJZkRMaynX39ykf3gAeRDnkCoQWx0GN\nFr5IBrP1bBbAWAKn2C4TqKb9QyMwJw==\n=icrk\n-----END PGP SIGNATURE-----\r\n\r\n-----------------------------3204198641555151219403070096--\r\n");
         let response_unwrapped = response.expect("multipart");
         if let BodyContentType::MultiPart(body) = response_unwrapped.body {
             assert_eq!(
@@ -1014,7 +1071,7 @@ BNUI5YCF3PV9MKr3N53vEVYvkbXLbw==
                 response_unwrapped
             );
         }
-        
+
         // Get requests should get their message body parsed
         let response = Message::from_tcp_stream(b"GET / HTTP/2.0\r\n\r\nabc=123");
         assert!(response.is_some());
