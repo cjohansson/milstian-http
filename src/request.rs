@@ -3,6 +3,8 @@
 use std::collections::HashMap;
 use std::str;
 
+use capitalize_key;
+
 #[derive(Debug)]
 pub enum BodyContentType {
     SinglePart(HashMap<String, String>),
@@ -299,13 +301,12 @@ impl Message {
         None
     }
 
-    // TODO Maybe change keys to Camel-Case to improve parsing
     pub fn get_header_field(line: &str) -> Option<(String, HeaderValueParts)> {
         let line = line.trim();
         if !line.is_empty() {
             let parts: Vec<&str> = line.splitn(2, ":").collect();
             if parts.len() == 2 {
-                let header_key = parts.get(0)?.trim().to_string();
+                let header_key = capitalize_key(&parts.get(0)?.trim().to_string());
                 let header_value = parts.get(1)?.trim().to_string();
                 let mut header_parts: Vec<Vec<HeaderValuePart>> = Vec::new();
 
@@ -345,6 +346,9 @@ impl Message {
         let line = line.trim();
         let parts: Vec<&str> = line.split(" ").collect();
         if parts.len() == 3 {
+            // Request line has three parts (> HTTP 0.9)
+
+            // Get method
             let method = match parts.get(0)?.as_ref() {
                 "CONNECT" => Method::Connect,
                 "DELETE" => Method::Delete,
@@ -358,7 +362,10 @@ impl Message {
                 __ => Method::Invalid,
             };
 
+            // Parse request URI
             let request_uri = parts.get(1)?.to_string();
+
+            // Parse query string, query arguments as base request URI
             let request_uri_copy = request_uri.clone();
             let mut request_uri_base = request_uri.clone();
             let mut query_string = String::new();
@@ -370,8 +377,9 @@ impl Message {
                 if let Some(query_args) = Message::get_query_args_from_string(&query_string) {
                     query_arguments = query_args;
                 }
-            }
+            };
 
+            // Parse protocol
             let protocol = match parts.get(2)?.as_ref() {
                 "HTTP/0.9" => Protocol::V0_9,
                 "HTTP/1.0" => Protocol::V1_0,
@@ -380,6 +388,7 @@ impl Message {
                 _ => Protocol::Invalid,
             };
 
+            // Did we find a valid method and protocol?
             if method != Method::Invalid && protocol != Protocol::Invalid {
                 return Some(Line {
                     method,
@@ -394,16 +403,21 @@ impl Message {
         } else if parts.len() == 1 {
             // Support for a request line containing only the path name is accepted by servers to
             // maintain compatibility with  clients before the HTTP/1.0 specification.
+
+            // HTTP 0.9 only supports GET requests
             let method = Method::Get;
+
+            // Parse request URI
             let request_uri = parts.get(0)?.trim_matches(char::from(0)).to_string();
             if !request_uri.is_empty() {
+                // Protocol is always HTTP 0.9
                 let protocol = Protocol::V0_9;
 
+                // Parse query string, query arguments and request URI base
                 let request_uri_copy = request_uri.clone();
                 let mut request_uri_base = request_uri.clone();
                 let mut query_string = String::new();
                 let mut query_arguments: HashMap<String, String> = HashMap::new();
-
                 let uri_parts: Vec<&str> = request_uri_copy.splitn(2, "?").collect();
                 if uri_parts.len() == 2 {
                     request_uri_base = uri_parts.get(0)?.to_string();
@@ -852,7 +866,7 @@ BNUI5YCF3PV9MKr3N53vEVYvkbXLbw==
     #[test]
     fn test_get_header_field() {
         let response = Message::get_header_field(
-            "User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:12.0) Gecko/20100101 Firefox/12.0\r\n",
+            "user-agent: Mozilla/5.0 (X11; Linux x86_64; rv:12.0) Gecko/20100101 Firefox/12.0\r\n",
         );
         assert!(response.is_some());
 
@@ -863,7 +877,7 @@ BNUI5YCF3PV9MKr3N53vEVYvkbXLbw==
             "Mozilla/5.0 (X11; Linux x86_64; rv:12.0) Gecko/20100101 Firefox/12.0".to_string()
         );
 
-        let response = Message::get_header_field("Cache-Control: no-cache \r\n");
+        let response = Message::get_header_field("CACHE-CONTROL: no-cache \r\n");
         assert!(response.is_some());
 
         let (key, value) = response.unwrap();
